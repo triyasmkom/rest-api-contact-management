@@ -1849,6 +1849,219 @@ Tambahkan di file ```package.json``` menjadi seperti ini:
 }
 ```
 
+## API Login
+
+### Tambahkan Validation
+
+```user-validation.js```
+
+```js
+import Joi from "joi"
+
+const registerUserValidation = Joi.object({
+    username: Joi.string().max(100).required(),
+    password: Joi.string().max(100).required(),
+    name: Joi.string().max(100).required(),
+});
+
+const loginUserValidation = Joi.object({
+    username: Joi.string().max(100).required(),
+    password: Joi.string().max(100).required()
+});
+
+export {
+    registerUserValidation, 
+    loginUserValidation
+}
+```
+
+validation.js
+
+```js
+
+import { ErrorHandling } from "../error/error-handling.js"
+
+const validate = (schema, request)=>{
+    const result = schema.validate(request, {
+        abortEarly: false,      // dicek semua field
+        allowUnknown: false     // field yang tak diketahui
+    })
+    if(result.error){
+        throw new ErrorHandling(400, result.error.message)
+    } else {
+        return result.value
+    }
+}
+
+export {
+    validate
+}
+
+```
+
+#### Tambahkan di user-service.js
+
+user-service.js
+
+```js
+import { loginUserValidation, registerUserValidation } from "../validation/user-validation.js"
+import { validate } from "./../validation/validation.js"
+import {prismaClient} from "./../application/databases.js"
+import { ErrorHandling } from "../error/error-handling.js"
+import bcrypt from "bcrypt"
+import { logger } from "../application/logging.js"
+import {v4 as uuid} from "uuid"
+
+
+const register = async (request)=>{
+    try{
+        // validate
+        const user = validate(registerUserValidation, request)
+
+        // check user
+        const countUser = await prismaClient.user.count({
+            where:{
+                username: user.username
+            }
+        })
+
+        if(countUser===1){
+            throw new ErrorHandling(400, "Username already exist")
+        }
+
+        // hashing password
+        user.password = await bcrypt.hash(user.password, 10)
+
+
+        // query ke database
+
+        return await prismaClient.user.create({
+            data: user,
+            select:{
+                username: true, 
+                name: true
+            }
+        })
+
+    } catch(error){
+        if(process.env.DEBUG){
+            logger.error("error user service register", error)
+        }
+        throw new ErrorHandling(400, "error user service register")
+    }
+}
+
+const login = async(request)=>{
+    try{
+        const loginRequest = validate(loginUserValidation, request);
+
+        // check user
+        const user = await prismaClient.user.findUnique({
+            where: {
+                username: loginRequest.username
+            },
+            select:{
+                username: true,
+                password: true
+            }
+        });
+
+
+        if(!user){
+            throw new ErrorHandling(401, "Username or password wrong");
+        }
+
+        // check password
+        const isPasswordValid = await bcrypt.compare(loginRequest.password, user.password);
+        if(!isPasswordValid){
+            throw new ErrorHandling(401, "Username or password wrong");
+        }
+
+        // membuat token
+        const token = uuid().toString
+
+        return prismaClient.user.update({
+            data:{
+                token: token
+            }, 
+            where:{
+                username: user.username
+            },
+            select: {
+                token: true
+            }
+        });
+
+
+
+    }catch(error){
+        if(process.env.DEBUG){
+            logger.error("error user service login", error);
+        }
+        throw new ErrorHandling(400, "error user service login");
+    }
+}
+
+export default {
+    register, login
+}
+```
+
+
+#### Tambahkan di file user-controller.js
+
+user-controller.js
+
+```js
+import userService from "../service/user-service.js"
+
+
+const register = async(req, res, next)=>{
+    try{
+        const result = await userService.register(req.body)
+        res.status(200).json({
+            data: result
+        })
+    } catch(error){
+        next(error)
+    }
+}
+
+const login = async(req, res, next)=>{
+    try{
+        const result = await userService.login(req.body)
+        res.status(200).json({
+            data: result
+        })
+    } catch(error){
+        next(error)
+    }
+}
+
+
+export default {
+    register, login
+}
+```
+
+public-api.js
+
+
+```js
+import express from "express"
+import userController from "../controller/user-controller.js"
+
+
+const publicRouter = new express.Router();
+publicRouter.post('/api/users', userController.register)
+publicRouter.post('/api/users/login', userController.login)
+
+export {
+    publicRouter
+}
+
+```
+
 
 ## Unit Testing
 
@@ -1856,9 +2069,261 @@ Tambahkan di file ```package.json``` menjadi seperti ini:
  Buat file user.test.js di folder test/ :
 
  ```js
+import { prismaClient } from "../src/application/databases.js"
+import supertest from "supertest"
+import {web} from "../src/application/web.js"
+import {logger} from "../src/application/logging.js"
 
+describe('POST /api/users', ()=>{
+
+    // Setelah test selesai, hapus data nya
+    afterEach(async ()=>{
+        await prismaClient.user.deleteMany({
+            where:{
+                username: 'test'
+            }
+        });
+    })
+
+    it('should can register new user', async ()=>{
+
+        const result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe('test');
+        expect(result.body.data.name).toBe('test');
+        expect(result.body.data.password).toBeUndefined();
+
+    });
+
+    it('should reject if request is invalid', async ()=>{
+
+        const result = await supertest(web).post('/api/users').send({
+            username: '',
+            password: '',
+            name:''
+        });
+
+        logger.info(result.body)
+
+        expect(result.status).toBe(400);
+        expect(result.body.errors).toBeDefined();
+
+    })
+
+
+    it('should reject if username already registered', async ()=>{
+
+        let result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe('test');
+        expect(result.body.data.name).toBe('test');
+        expect(result.body.data.password).toBeUndefined();
+
+
+        result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        logger.info(result.body)
+
+        expect(result.status).toBe(400);
+        expect(result.body.errors).toBeDefined();
+
+    });
+    
+})
 
  ```
+
+
+user.test.js
+
+
+ ```js
+import { prismaClient } from "../src/application/databases.js"
+import supertest from "supertest"
+import {web} from "../src/application/web.js"
+import {logger} from "../src/application/logging.js"
+import { createTestUser, removeTestUser } from "./test-util.js"
+
+describe('POST /api/users', ()=>{
+
+    // Setelah test selesai, hapus data nya
+    afterEach(async ()=>{
+        await removeTestUser()
+    })
+
+    it('should can register new user', async ()=>{
+
+        const result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe('test');
+        expect(result.body.data.name).toBe('test');
+        expect(result.body.data.password).toBeUndefined();
+
+    });
+
+    it('should reject if request is invalid', async ()=>{
+
+        const result = await supertest(web).post('/api/users').send({
+            username: '',
+            password: '',
+            name:''
+        });
+
+        logger.info(result.body)
+
+        expect(result.status).toBe(400);
+        expect(result.body.errors).toBeDefined();
+
+    })
+
+
+    it('should reject if username already registered', async ()=>{
+
+        let result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe('test');
+        expect(result.body.data.name).toBe('test');
+        expect(result.body.data.password).toBeUndefined();
+
+
+        result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        logger.info(result.body)
+
+        expect(result.status).toBe(400);
+        expect(result.body.errors).toBeDefined();
+
+    });
+    
+});
+
+describe('POST /api/users/login', ()=>{
+
+    beforeEach(async ()=>{
+        await createTestUser();
+    });
+
+    afterEach(async ()=>{
+        await removeTestUser();
+    });
+
+
+    it('should can login', async()=>{
+        const result = await supertest(web).post('/api/users/login').send({
+            username: 'test',
+            password: 'rahasia'
+        });
+
+        logger.info(result);
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.token).toBeDefined();
+        expect(result.body.data.token).not.toBe('test');
+    });
+
+
+    it('should reject login if request is invalid', async()=>{
+        const result = await supertest(web).post('/api/users/login').send({
+            username: '',
+            password: ''
+        });
+
+        logger.info(result);
+
+        expect(result.status).toBe(400);
+        expect(result.body.errors).toBeDefined();
+    });
+
+    it('should reject login if password is wrong', async()=>{
+        const result = await supertest(web).post('/api/users/login').send({
+            username: 'test',
+            password: 'salah'
+        });
+
+        logger.info(result);
+
+        expect(result.status).toBe(401);
+        expect(result.body.errors).toBeDefined();
+    });
+
+
+    it('should reject login if username is wrong', async()=>{
+        const result = await supertest(web).post('/api/users/login').send({
+            username: 'salah',
+            password: 'rahasia'
+        });
+
+        logger.info(result);
+
+        expect(result.status).toBe(401);
+        expect(result.body.errors).toBeDefined();
+    });
+
+
+})
+
+ ```
+
+
+test-utils.js
+
+```js
+import { prismaClient } from "../src/application/databases.js";
+import bcrypt from 'bcrypt';
+
+const removeTestUser = async() =>{
+    await prismaClient.user.deleteMany({
+        where:{
+            username: 'test'
+        }
+    });
+}
+
+
+const createTestUser = async() =>{
+    await prismaClient.user.create({
+        data:{
+            username: 'test',
+            password: await bcrypt.hash('rahasia',10),
+            name: 'test',
+            token: 'test'
+        }
+    })
+}
+
+export{
+    removeTestUser, createTestUser
+}
+```
+
 
 ## Reference:
 
