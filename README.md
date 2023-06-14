@@ -1,4 +1,4 @@
-# Membuat API Conatact User Management
+# Membuat API Contact User Management
 
 ## Requirement
 1. User Management
@@ -454,3 +454,951 @@ biasanya jest berjalan secara paralel, agar dapat berjalan secara sequential kit
 
 ```
 
+
+## API Spec
+
+### 1. User API Spec
+
+#### Register User
+
+Endpoint: POST /api/users
+
+Request Body:
+
+```json
+{
+  "username" : "test-user",
+  "password" : "rahasia",
+  "name"  : "Test User"
+}
+```
+
+Response Body Success:
+
+
+```json
+{
+  "status": true,
+  "data": {
+      "username" : "test-user",
+      "name"  : "Test User"
+  }
+}
+```
+
+Response Body Errors:
+
+```json
+{
+  "status": false,
+  "errors": "Username already registered"
+}
+```
+
+
+#### Login User
+
+Endpoint: POST /api/users/login
+
+Request Body:
+
+```json
+{
+  "username" : "test-user",
+  "password" : "rahasia"
+}
+```
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+      "token" : "uniq-token"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Username or password wrong"
+}
+```
+
+#### Update User
+
+Endpoint: PATCH /api/users/current
+
+Headers:
+- Authorization : token
+
+Request Body:
+
+```json
+{
+  "name": "Test Users",           // optional
+  "new_password" : "rahasia"      // optional
+}
+```
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+      "username" : "test-user",
+      "name": "Test User"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Name length max 100"
+}
+```
+
+#### Get User
+
+Endpoint: GET /api/users/current
+
+Headers:
+- Authorization : token
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+      "username" : "test-user",
+      "name": "Test User"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Unauthorized"
+}
+```
+
+#### Logout User
+
+Endpoint: DELETE /api/users/logout
+
+Headers:
+- Authorization : token
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": "OK"
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Unauthorized"
+}
+```
+
+
+### 2. Contact API Spec
+
+#### Create Contact API
+
+Endpoint: POST /api/contacts
+
+Headers:
+- Authorization : token
+
+
+Request Body:
+
+```json
+{
+  "first_name": "test-name",
+  "last_name": "test-name",
+  "phone_number":"1234565767",
+  "email": "test@email.com"
+}
+```
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+    "id":1,
+    "first_name": "test-name",
+    "last_name": "test-name",
+    "phone_number":"1234565767",
+    "email": "test@email.com"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Email is not valid format"
+}
+```
+
+#### Update Contact API
+
+Endpoint: PUT /api/contacts/:id
+
+Headers:
+- Authorization : token
+
+
+Request Body:
+
+```json
+{
+  "first_name": "test-name",
+  "last_name": "test-name",
+  "phone_number":"1234565767",
+  "email": "test@email.com"
+}
+```
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+    "id":1,
+    "first_name": "test-name",
+    "last_name": "test-name",
+    "phone_number":"1234565767",
+    "email": "test@email.com"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Email is not valid format"
+}
+```
+
+#### Get Contact API
+
+Endpoint: GET /api/contacts
+
+Headers:
+- Authorization : token
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+    "id":1,
+    "first_name": "test-name",
+    "last_name": "test-name",
+    "phone_number":"1234565767",
+    "email": "test@email.com"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Contact is not found"
+}
+```
+
+#### Search Contact API
+
+Endpoint: GET /api/contacts
+
+Headers:
+- Authorization : token
+
+Query params:
+- name: Search by first_name or last_name, using like, optional
+- email: Search by email, using like, optional
+- phone: Search by phone, using like, optional
+- page: number of page, default 1
+- size: size of page, default 10
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": [{
+    "id":1,
+    "first_name": "test-name",
+    "last_name": "test-name",
+    "phone_number":"1234565767",
+    "email": "test@email.com"
+  }, {
+    "id":2,
+    "first_name": "test-name",
+    "last_name": "test-name",
+    "phone_number":"1234565767",
+    "email": "test@email.com"
+  }, {
+    "id":3,
+    "first_name": "test-name",
+    "last_name": "test-name",
+    "phone_number":"1234565767",
+    "email": "test@email.com"
+  }],
+  "page": 1,
+  "total_page": 3,
+  "total_item": 30
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Email is not valid format"
+}
+```
+
+#### Remove Contact API
+
+
+Endpoint: DELETE /api/contacts/:id
+
+Headers:
+- Authorization : token
+
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": "OK"
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Contact is not found"
+}
+```
+
+
+
+### 3. Address API Spec
+#### Create Address API
+
+Endpoint: POST /api/contacts/:contactId/addresses
+
+Headers:
+- Authorization : token
+
+
+Request Body:
+
+```json
+{
+  "street": "Jl. Cibarusa",
+  "city": "Bandung",
+  "province":"Jawa Barat",
+  "country": "Indonesia",
+  "postal_code": "551234"
+}
+```
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+    "id":1,
+    "street": "Jl. Cibarusa",
+    "city": "Bandung",
+    "province":"Jawa Barat",
+    "country": "Indonesia",
+    "postal_code": "551234"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Coutry is required"
+}
+```
+
+#### Update Address API
+
+Endpoint: PUT /api/contacts/:contactId/addresses/:addressId
+
+Headers:
+- Authorization : token
+
+
+Request Body:
+
+```json
+{
+  "street": "Jl. Cibarusa",
+  "city": "Bandung",
+  "province":"Jawa Barat",
+  "country": "Indonesia",
+  "postal_code": "551234"
+}
+```
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+    "id":1,
+    "street": "Jl. Cibarusa",
+    "city": "Bandung",
+    "province":"Jawa Barat",
+    "country": "Indonesia",
+    "postal_code": "551234"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Coutry is required"
+}
+```
+
+#### Get Address API
+
+Endpoint: GET /api/contacts/:contactId/addresses/:addressId
+
+Headers:
+- Authorization : token
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": {
+    "id":1,
+    "street": "Jl. Cibarusa",
+    "city": "Bandung",
+    "province":"Jawa Barat",
+    "country": "Indonesia",
+    "postal_code": "551234"
+  }
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Contact is not found"
+}
+```
+
+#### List Address API
+
+Endpoint: GET /api/contacts/:contactId/addresses
+
+Headers:
+- Authorization : token
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": [{
+      "id":1,
+      "street": "Jl. Cibarusa",
+      "city": "Bandung",
+      "province":"Jawa Barat",
+      "country": "Indonesia",
+      "postal_code": "551234"
+    },{
+      "id":2,
+      "street": "Jl. Cibarusa",
+      "city": "Bandung",
+      "province":"Jawa Barat",
+      "country": "Indonesia",
+      "postal_code": "551234"
+    },{
+      "id":3,
+      "street": "Jl. Cibarusa",
+      "city": "Bandung",
+      "province":"Jawa Barat",
+      "country": "Indonesia",
+      "postal_code": "551234"
+    }]
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Contact is not found"
+}
+```
+
+#### Remove Address API
+
+
+Endpoint: GET /api/contacts/:contactId/addresses/:addressId
+
+Headers:
+- Authorization : token
+
+Response Body Success:
+
+```json
+{
+  "status": true,
+  "data": "OK"
+}
+```
+
+Response Body Error:
+
+```json
+{
+  "status": false,
+  "errors": "Contact is not found"
+}
+```
+
+
+## Prisma
+
+### Setup Prisma
+1. Jalankan perintah: ```npx prisma init```
+2. Setup .env :
+   
+  ```env
+  DATABASE_URL="mysql://root:12345@localhost:3306/restful_api_db"
+  ```
+
+### User Model
+
+```prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  username String  @id @db.VarChar(100)
+  password String  @db.VarChar(100)
+  name     String  @db.VarChar(100)
+  token    String? @db.VarChar(100)
+
+  @@map("users")
+}
+
+```
+
+
+Misal kita lupa, kita dapat melakukan ini:
+
+```bash
+$ npx prisma --help
+
+◭  Prisma is a modern DB toolkit to query, migrate and model your database (https://prisma.io)
+
+Usage
+
+  $ prisma [command]
+
+Commands
+
+            init   Set up Prisma for your app
+        generate   Generate artifacts (e.g. Prisma Client)
+              db   Manage your database schema and lifecycle
+         migrate   Migrate your database
+          studio   Browse your data with Prisma Studio
+        validate   Validate your Prisma schema
+          format   Format your Prisma schema
+
+Flags
+
+     --preview-feature   Run Preview Prisma commands
+
+Examples
+
+  Set up a new Prisma project
+  $ prisma init
+
+  Generate artifacts (e.g. Prisma Client)
+  $ prisma generate
+
+  Browse your data
+  $ prisma studio
+
+  Create migrations from your Prisma schema, apply them to the database, generate artifacts (e.g. Prisma Client)
+  $ prisma migrate dev
+  
+  Pull the schema from an existing database, updating the Prisma schema
+  $ prisma db pull
+
+  Push the Prisma schema state to the database
+  $ prisma db push
+
+  Validate your Prisma schema
+  $ prisma validate
+
+  Format your Prisma schema
+  $ prisma format
+```
+
+
+```bash
+$ npx prisma migrate --help
+
+Update the database schema with migrations
+  
+Usage
+
+  $ prisma migrate [command] [options]
+
+Commands for development
+
+         dev   Create a migration from changes in Prisma schema, apply it to the database
+               trigger generators (e.g. Prisma Client)
+       reset   Reset your database and apply all migrations, all data will be lost
+
+Commands for production/staging
+
+      deploy   Apply pending migrations to the database 
+      status   Check the status of your database migrations
+     resolve   Resolve issues with database migrations, i.e. baseline, failed migration, hotfix
+
+Command for any stage
+
+        diff   Compare the database schema from two arbitrary sources
+
+Options
+
+  -h, --help   Display this help message
+    --schema   Custom path to your Prisma schema
+
+Examples
+
+  Create a migration from changes in Prisma schema, apply it to the database, trigger generators (e.g. Prisma Client)
+  $ prisma migrate dev
+
+  Reset your database and apply all migrations
+  $ prisma migrate reset
+
+  Apply pending migrations to the database in production/staging
+  $ prisma migrate deploy
+
+  Check the status of migrations in the production/staging database
+  $ prisma migrate status
+
+  Specify a schema
+  $ prisma migrate status --schema=./schema.prisma
+
+  Compare the database schema from two databases and render the diff as a SQL script
+  $ prisma migrate diff \
+    --from-url "$DATABASE_URL" \
+    --to-url "postgresql://login:password@localhost:5432/db" \
+    --script
+```
+
+```bash
+$ npx prisma migrate dev --help
+
+🏋️  Create a migration from changes in Prisma schema, apply it to the database, trigger generators (e.g. Prisma Client)
+ 
+Usage
+
+  $ prisma migrate dev [options]
+
+Options
+
+       -h, --help   Display this help message
+         --schema   Custom path to your Prisma schema
+       -n, --name   Name the migration
+    --create-only   Create a new migration but do not apply it
+                    The migration will be empty if there are no changes in Prisma schema
+  --skip-generate   Skip triggering generators (e.g. Prisma Client)
+      --skip-seed   Skip triggering seed
+
+Examples
+
+  Create a migration from changes in Prisma schema, apply it to the database, trigger generators (e.g. Prisma Client)
+  $ prisma migrate dev
+
+  Specify a schema
+  $ prisma migrate dev --schema=./schema.prisma
+
+  Create a migration without applying it
+  $ prisma migrate dev --create-only
+
+```
+
+
+Mari kita jalankan migration tanpa eksekusi ke database: 
+
+```bash
+$ npx prisma migrate dev --create-only
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": MySQL database "restful_api_db" at "localhost:3306"
+
+MySQL database restful_api_db created at localhost:3306
+
+✔ Enter a name for the new migration: … first_migrate
+Prisma Migrate created the following migration without applying it 20230614094418_first_migrate
+
+You can now edit it and apply it by running prisma migrate dev.
+```
+
+Hasil migrasi dapat di lihat di folder ```prisma/migrations/``` , kita bisa cek di file .sql nya:
+
+```mysql
+-- CreateTable
+CREATE TABLE `users` (
+    `username` VARCHAR(100) NOT NULL,
+    `password` VARCHAR(100) NOT NULL,
+    `name` VARCHAR(100) NOT NULL,
+    `token` VARCHAR(100) NULL,
+
+    PRIMARY KEY (`username`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+```
+
+
+Ketika hasil migrasi sudah sesuai, mari kita lakukan migrasi ke database, dengan perintah:
+
+```bash
+$ npx prisma migrate dev
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": MySQL database "restful_api_db" at "localhost:3306"
+
+Applying migration `20230614094418_first_migrate`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20230614094418_first_migrate/
+    └─ migration.sql
+
+Your database is now in sync with your schema.
+
+Running generate... (Use --skip-generate t
+o skip the generators)
+(⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂) ⠦ idealTree:restful-c(⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂) ⠦ idealTree:restful-c(⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂⠂) ⠦ idealTree:restful-c(#########⠂⠂⠂⠂⠂⠂⠂⠂⠂) ⠇ idealTree: timing i
+
+added 2 packages, and audited 542 packages in 25s
+
+42 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+✔ Generated Prisma Client (4.15.0 | librar
+y) to ./node_modules/@prisma/client in 484
+ms
+```
+
+
+
+
+### Contact Model
+
+```prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  username String    @id @db.VarChar(100)
+  password String    @db.VarChar(100)
+  name     String    @db.VarChar(100)
+  token    String?   @db.VarChar(100)
+  contacts Contact[]
+
+  @@map("users")
+}
+
+model Contact {
+  id         Int     @id @default(autoincrement())
+  first_name String  @db.VarChar(100)
+  last_name  String? @db.VarChar(100)
+  email      String? @db.VarChar(200)
+  phone      String? @db.VarChar(20)
+  username   String  @db.VarChar(100)
+  user       User    @relation(fields: [username], references: [username])
+
+  @@map("contacts")
+}
+
+```
+
+```mysql
+-- CreateTable
+CREATE TABLE `contacts` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `first_name` VARCHAR(100) NOT NULL,
+    `last_name` VARCHAR(100) NULL,
+    `email` VARCHAR(200) NULL,
+    `phone` VARCHAR(20) NULL,
+    `username` VARCHAR(100) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `contacts` ADD CONSTRAINT `contacts_username_fkey` FOREIGN KEY (`username`) REFERENCES `users`(`username`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+
+```
+
+
+### Address Model
+
+
+```prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  username String    @id @db.VarChar(100)
+  password String    @db.VarChar(100)
+  name     String    @db.VarChar(100)
+  token    String?   @db.VarChar(100)
+  contacts Contact[]
+
+  @@map("users")
+}
+
+model Contact {
+  id         Int       @id @default(autoincrement())
+  first_name String    @db.VarChar(100)
+  last_name  String?   @db.VarChar(100)
+  email      String?   @db.VarChar(200)
+  phone      String?   @db.VarChar(20)
+  username   String    @db.VarChar(100)
+  user       User      @relation(fields: [username], references: [username])
+  addresses  Address[]
+
+  @@map("contacts")
+}
+
+model Address {
+  id          Int     @id @default(autoincrement())
+  street      String? @db.VarChar(255)
+  city        String? @db.VarChar(100)
+  province    String? @db.VarChar(100)
+  country     String? @db.VarChar(100)
+  postal_code String? @db.VarChar(10)
+  contact_id  Int
+  contact     Contact @relation(fields: [contact_id], references: [id])
+}
+
+```
+
+```mysql
+-- CreateTable
+CREATE TABLE `Address` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `street` VARCHAR(255) NULL,
+    `city` VARCHAR(100) NULL,
+    `province` VARCHAR(100) NULL,
+    `country` VARCHAR(100) NULL,
+    `postal_code` VARCHAR(10) NULL,
+    `contact_id` INTEGER NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `Address` ADD CONSTRAINT `Address_contact_id_fkey` FOREIGN KEY (`contact_id`) REFERENCES `contacts`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+```
+
+
+
+
+
+
+## Reference:
+
+https://www.youtube.com/watch?v=6v8JXecArqE
