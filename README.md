@@ -1395,6 +1395,455 @@ ALTER TABLE `Address` ADD CONSTRAINT `Address_contact_id_fkey` FOREIGN KEY (`con
 ```
 
 
+## Setup Project
+
+### Setup Prisma
+Mari kita buat file database.js di folder src/application :
+
+```js
+// Singleton
+import { PrismaClient } from "@prisma/client";
+
+export const prismaClient = new PrismaClient()
+```
+
+
+### Setup Winston
+
+Mari kita buat file logging.js di folder src/application :
+
+```js
+import winston from "winston/lib/winston/config";
+
+export const logger = winston.createLogger({
+    level: "info",
+    format: winston.format.json(),
+    transports:[
+        new winston.transports.Console({})
+    ]
+}) 
+```
+
+### Setup Express
+
+Mari kita buat file web.js di folder src/application :
+
+```js
+import express from "express"
+
+export const web = express()
+web.use(express.json())
+```
+
+
+### Setup Prisma Logging
+
+dokumentasi: https://www.prisma.io/docs/concepts/components/prisma-client/working-with-prismaclient/logging
+
+
+Secara default log prisma akan dikirimkan ke stdout.
+
+```js
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+})
+```
+
+
+```js
+const prisma = new PrismaClient({
+  log: [
+    {
+      emit: 'stdout',
+      level: 'query',
+    },
+    {
+      emit: 'stdout',
+      level: 'error',
+    },
+    {
+      emit: 'stdout',
+      level: 'info',
+    },
+    {
+      emit: 'stdout',
+      level: 'warn',
+    },
+  ],
+})
+
+```
+
+Kita bisa ganti dari stdout ke tempat lain, kita bisa ganti yang default nya ```stdout``` kita ganti menjadi ```event```:
+
+```js
+const prisma = new PrismaClient({
+  log: [
+    {
+      emit: 'event',
+      level: 'query',
+    },
+    {
+      emit: 'stdout',
+      level: 'error',
+    },
+    {
+      emit: 'stdout',
+      level: 'info',
+    },
+    {
+      emit: 'stdout',
+      level: 'warn',
+    },
+  ],
+})
+
+prisma.$on('query', (e) => {
+  console.log('Query: ' + e.query)
+  console.log('Params: ' + e.params)
+  console.log('Duration: ' + e.duration + 'ms')
+})
+
+```
+
+Ubah di file database.js
+
+```js
+import { PrismaClient } from "@prisma/client";
+import {logger} from "./logging.js"
+
+
+export const prismaClient = new PrismaClient({
+  log: [
+    {
+      emit: 'event',
+      level: 'query',
+    },
+    {
+      emit: 'event',
+      level: 'error',
+    },
+    {
+      emit: 'event',
+      level: 'info',
+    },
+    {
+      emit: 'event',
+      level: 'warn',
+    },
+  ],
+})
+
+
+prismaClient.$on('error', (e)=>{
+    logger.error(e);
+})
+
+prismaClient.$on('warn', (e)=>{
+    logger.warn(e);
+})
+
+prismaClient.$on('info', (e)=>{
+    logger.info(e);
+})
+
+prismaClient.$on('query', (e)=>{
+    logger.info(e);
+})
+```
+
+
+## Register User API
+
+### Membuat Validation
+
+Mari kita buat file ```user-validation.js``` di folder ```src/validation/``` :
+
+```js
+
+import Joi from "joi"
+
+const registerUserValidation = Joi.object({
+    username: Joi.string().max(100).required(),
+    password: Joi.string().max(100).required(),
+    name: Joi.string().max(100).required(),
+});
+
+export {
+    registerUserValidation
+}
+```
+
+Mari kita buat file  ```validation.js``` di folder ```src/validation/``` :
+
+
+```js
+const validate = (schema, request)=>{
+    const result = schema.validate(request)
+    if(result.error){
+        throw result.error
+    } else {
+        return result.value
+    }
+}
+
+export {
+    validate
+}
+```
+
+
+### Membuat User Service
+
+Mari kita buat file  ```error-handling.js``` di folder ```src/error/``` :
+
+```js
+
+class ErrorHandling extends Error{
+
+    constructor(status, message){
+        super(message)
+        this.status = status
+    }
+}
+
+export{
+    ErrorHandling
+}
+
+```
+
+Mari kita buat file  ```user-service.js``` di folder ```src/service/``` :
+
+```js
+import { registerUserValidation } from "../validation/user-validation.js"
+import { validate } from "./../validation/validation.js"
+import {prismaClient} from "./../application/databases.js"
+import { ErrorHandling } from "../error/error-handling.js"
+import bcrypt from "bcrypt"
+
+const register = async (request)=>{
+    try{
+        // validate
+        const user = validate(registerUserValidation, request)
+
+        // check user
+        const countUser = await prismaClient.user.count({
+            where:{
+                username: user.username
+            }
+        })
+
+        if(countUser===1){
+            throw new ErrorHandling(400, "Username already exist")
+        }
+
+        // hashing password
+        user.password = await bcrypt.hash(user.password, 10)
+
+
+        // query ke database
+
+        return await prismaClient.user.create({
+            data: user,
+            select:{
+                username: true, 
+                name: true
+            }
+        })
+
+    } catch(error){
+        if(process.env.DEBUG){
+            console.error(error)
+        }
+        throw new ErrorHandling(500, "error user service register")
+    }
+}
+
+export default {
+  register
+}
+```
+
+
+### Membuat User Controller
+
+Mari kita buat file  ```user-controller.js``` di folder ```src/controller/``` :
+
+```js
+import userService from "../service/user-service.js"
+
+
+const register = async(req, res, next)=>{
+    try{
+        const result = await userService.register(req.body)
+        res.status(200).json({
+            data: result
+        })
+    } catch(error){
+        next(error)
+    }
+}
+
+export default {
+    register
+}
+```
+
+
+Mari kita buat file  ```public-api.js``` di folder ```src/route/``` :
+
+
+```js
+import express from "express"
+import userController from "../controller/user-controller.js"
+
+
+const publicRouter = new express.Router();
+publicRouter.post('/api/users', userController.register)
+
+export {
+    publicRouter
+}
+```
+
+Tambahkan di file ```src/application/web.js``` menjadi seperti ini:
+
+```js
+import express from "express"
+import { publicRouter } from "../route/public-api.js"
+
+export const web = express()
+web.use(express.json())
+
+web.use(publicRouter)
+
+```
+
+Tambahkan di file ```src/middleware/error-middleware.js``` menjadi seperti ini:
+
+```js
+import { ErrorHandling } from "../error/error-handling.js"
+import {ValidationError} from "joi"
+
+const errorMiddleware = async (error, req, res, next)=>{
+
+    if(!error){
+        next()
+        return
+    }
+
+    if(error instanceof ErrorHandling){
+        res.status(error.status).json({
+            status: false,
+            errors: error.message
+        }).end()
+    } else if(error instanceof ValidationError){
+        res.status(400).json({
+            status: false,
+            errors: error.message
+        }).end()
+    } else{
+        res.status(500).json({
+            status: false,
+            errors: error.message
+        }).end()
+    }
+
+}
+
+export {
+    errorMiddleware
+}
+```
+
+
+Tambahkan di file ```src/application/web.js``` menjadi seperti ini:
+
+```js
+import express from "express"
+import { publicRouter } from "../route/public-api.js"
+import { errorMiddleware } from "../middleware/error-middleware.js"
+
+export const web = express()
+web.use(express.json())
+web.use(publicRouter)
+web.use(errorMiddleware)
+
+```
+
+
+### Membuat Main Javascript File
+
+
+Tambahkan di file ```src/main.js``` menjadi seperti ini:
+
+```js
+import {web} from "./application/web.js"
+import { logger } from "./application/logging.js"
+
+const port = process.env.PORT || 3000
+
+web.listen(port, ()=>{
+    logger.info(`Restful start in port ${port}`)
+})
+```
+
+Tambahkan di file ```.env``` menjadi seperti ini:
+
+```env
+DEBUG=true
+PORT=3000
+DATABASE_URL="mysql://root:12345@localhost:3306/restful_api_db"
+
+```
+
+Tambahkan di file ```package.json``` menjadi seperti ini:
+
+```json
+{
+  "name": "restful-contact-management",
+  "version": "1.0.0",
+  "description": "Node Js Restful API",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "dev": "nodemon src/main.js",
+    "test": "jest -i"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.[t|j]sx?$": "babel-jest"
+    }
+  },
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^4.15.0",
+    "bcrypt": "^5.1.0",
+    "express": "^4.18.2",
+    "joi": "^17.9.2",
+    "uuid": "^9.0.0",
+    "winston": "^3.9.0"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.22.5",
+    "@types/bcrypt": "^5.0.0",
+    "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.2",
+    "@types/supertest": "^2.0.12",
+    "@types/uuid": "^9.0.2",
+    "babel-jest": "^29.5.0",
+    "jest": "^29.5.0",
+    "nodemon": "^2.0.22",
+    "prisma": "^4.15.0",
+    "supertest": "^6.3.3"
+  }
+}
+```
+
 
 
 

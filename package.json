@@ -4,6 +4,8 @@
   "description": "Node Js Restful API",
   "main": "src/main.js",
   "scripts": {
+    "start": "node src/main.js",
+    "dev": "nodemon src/main.js",
     "test": "jest -i"
   },
   "jest": {
@@ -32,6 +34,7 @@
     "@types/uuid": "^9.0.2",
     "babel-jest": "^29.5.0",
     "jest": "^29.5.0",
+    "nodemon": "^2.0.22",
     "prisma": "^4.15.0",
     "supertest": "^6.3.3"
   }
