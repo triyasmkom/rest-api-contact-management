@@ -1,5 +1,14 @@
 import userService from "../service/user-service.js"
 
+const test = async (req, res, next)=>{
+    try{
+        res.status(200).json({
+            data: "test"
+        })
+    } catch(error){
+        next(error)
+    }
+}
 
 const register = async(req, res, next)=>{
     try{
@@ -25,5 +34,5 @@ const login = async(req, res, next)=>{
 
 
 export default {
-    register, login
+    register, login, test
 }
