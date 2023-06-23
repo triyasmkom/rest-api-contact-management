@@ -14,6 +14,8 @@ userRouter.delete('/api/users/current', userController.logoutUser);
 
 // API untuk contact
 userRouter.post('/api/contacts', contactController.create);
+userRouter.get('/api/contacts/:contactId', contactController.get);
+userRouter.put('/api/contacts/:contactId', contactController.update);
 
 
 export {
