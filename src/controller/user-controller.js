@@ -66,7 +66,20 @@ const updateUser = async(req, res, next)=>{
     }
 }
 
+const logoutUser = async(req, res, next)=>{
+    try{
+        await userService.logout(req.user.username);
+        res.status(200).json({
+            status: true,
+            data: "OK"
+        })
+
+    } catch(error){
+        next(error);
+    }
+}
+
 
 export default {
-    register, login, test, getUser, updateUser
+    register, login, test, getUser, updateUser, logoutUser
 }

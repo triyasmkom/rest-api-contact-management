@@ -238,3 +238,35 @@ describe('PATCH /api/users/current', ()=>{
     
     });
 });
+
+
+describe('DELETE /api/users/current', ()=>{
+    beforeEach(async ()=>{
+        await createTestUser();
+    });
+
+    afterEach(async ()=>{
+        await removeTestUser();
+    });
+    it('should can logout', async()=>{
+        const result = await supertest(web)
+                .delete('/api/users/current')
+                .set('Authorization', 'test');
+
+        expect(result.status).toBe(200);
+        expect(result.body.data).toBe("OK");
+
+
+        const getUser = await getTestuser();
+        expect(getUser.token).toBeNull();
+    });
+
+
+    it('should reject if token wrong', async()=>{
+        const result = await supertest(web)
+                .delete('/api/users/current')
+                .set('Authorization', 'salah');
+
+        expect(result.status).toBe(401);
+    });
+});
