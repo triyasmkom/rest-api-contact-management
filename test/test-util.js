@@ -18,9 +18,17 @@ const createTestUser = async() =>{
             name: 'test',
             token: 'test'
         }
-    })
+    });
+}
+
+const getTestuser = async()=>{
+    return prismaClient.user.findUnique({
+        where:{
+            username:"test"
+        }
+    });
 }
 
 export{
-    removeTestUser, createTestUser
+    removeTestUser, createTestUser, getTestuser
 }

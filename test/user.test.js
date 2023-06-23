@@ -2,7 +2,8 @@ import { prismaClient } from "../src/application/databases.js"
 import supertest from "supertest"
 import {web} from "../src/application/web.js"
 import {logger} from "../src/application/logging.js"
-import { createTestUser, removeTestUser } from "./test-util.js"
+import { createTestUser, getTestuser, removeTestUser } from "./test-util.js"
+import bycript from "bcrypt";
 
 describe('POST /api/users', ()=>{
 
@@ -168,3 +169,72 @@ describe('GET /api/users/current', ()=>{
     });
 });
 
+
+
+describe('PATCH /api/users/current', ()=>{
+    beforeEach(async ()=>{
+        await createTestUser();
+    });
+
+    afterEach(async ()=>{
+        await removeTestUser();
+    });
+
+    it('Should can update user', async()=>{
+        const result = await supertest(web)
+                    .patch('/api/users/current')
+                    .set("Authorization", "test")
+                    .send({
+                        name:"Triyas",
+                        password: "rahasialagi"
+                    });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe("test");
+        expect(result.body.data.name).toBe("Triyas");
+
+        const getUser = await getTestuser();
+        expect(await bycript.compare('rahasialagi', getUser.password)).toBe(true);
+
+    });
+
+    it('Should can update name', async()=>{
+        const result = await supertest(web)
+                    .patch('/api/users/current')
+                    .set("Authorization", "test")
+                    .send({
+                        name:"Triyas"
+                    });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe("test");
+        expect(result.body.data.name).toBe("Triyas");
+    });
+
+    it('Should can update password', async()=>{
+        const result = await supertest(web)
+                    .patch('/api/users/current')
+                    .set("Authorization", "test")
+                    .send({
+                        password: "rahasialagi"
+                    });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe("test");
+        expect(result.body.data.name).toBe("test");
+
+        const getUser = await getTestuser();
+        expect(await bycript.compare('rahasialagi', getUser.password)).toBe(true);
+
+    });
+
+    it('Should reject if request not valid', async()=>{
+        const result = await supertest(web)
+                    .patch('/api/users/current')
+                    .set("Authorization", "salah")
+                    .send({});
+
+        expect(result.status).toBe(401);
+    
+    });
+});
