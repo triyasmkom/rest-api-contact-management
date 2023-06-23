@@ -1849,6 +1849,94 @@ Tambahkan di file ```package.json``` menjadi seperti ini:
 }
 ```
 
+
+### Unit Test
+
+Buat file user.test.js di folder test/ :
+
+user.test.js
+
+ ```js
+import { prismaClient } from "../src/application/databases.js"
+import supertest from "supertest"
+import {web} from "../src/application/web.js"
+import {logger} from "../src/application/logging.js"
+
+describe('POST /api/users', ()=>{
+
+    // Setelah test selesai, hapus data nya
+    afterEach(async ()=>{
+        await prismaClient.user.deleteMany({
+            where:{
+                username: 'test'
+            }
+        });
+    })
+
+    it('should can register new user', async ()=>{
+
+        const result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe('test');
+        expect(result.body.data.name).toBe('test');
+        expect(result.body.data.password).toBeUndefined();
+
+    });
+
+    it('should reject if request is invalid', async ()=>{
+
+        const result = await supertest(web).post('/api/users').send({
+            username: '',
+            password: '',
+            name:''
+        });
+
+        logger.info(result.body)
+
+        expect(result.status).toBe(400);
+        expect(result.body.errors).toBeDefined();
+
+    })
+
+
+    it('should reject if username already registered', async ()=>{
+
+        let result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        expect(result.status).toBe(200);
+        expect(result.body.data.username).toBe('test');
+        expect(result.body.data.name).toBe('test');
+        expect(result.body.data.password).toBeUndefined();
+
+
+        result = await supertest(web).post('/api/users').send({
+            username: 'test',
+            password: 'rahasia',
+            name:'test'
+        });
+
+        logger.info(result.body)
+
+        expect(result.status).toBe(400);
+        expect(result.body.errors).toBeDefined();
+
+    });
+    
+})
+
+ ```
+
+
+
 ## API Login
 
 ### Tambahkan Validation
@@ -1899,7 +1987,7 @@ export {
 
 ```
 
-#### Tambahkan di user-service.js
+### Tambahkan di user-service.js
 
 user-service.js
 
@@ -2008,7 +2096,7 @@ export default {
 ```
 
 
-#### Tambahkan di file user-controller.js
+### Tambahkan di file user-controller.js
 
 user-controller.js
 
@@ -2062,92 +2150,8 @@ export {
 
 ```
 
-
-## Unit Testing
-
-### User Testing
- Buat file user.test.js di folder test/ :
-
- ```js
-import { prismaClient } from "../src/application/databases.js"
-import supertest from "supertest"
-import {web} from "../src/application/web.js"
-import {logger} from "../src/application/logging.js"
-
-describe('POST /api/users', ()=>{
-
-    // Setelah test selesai, hapus data nya
-    afterEach(async ()=>{
-        await prismaClient.user.deleteMany({
-            where:{
-                username: 'test'
-            }
-        });
-    })
-
-    it('should can register new user', async ()=>{
-
-        const result = await supertest(web).post('/api/users').send({
-            username: 'test',
-            password: 'rahasia',
-            name:'test'
-        });
-
-        expect(result.status).toBe(200);
-        expect(result.body.data.username).toBe('test');
-        expect(result.body.data.name).toBe('test');
-        expect(result.body.data.password).toBeUndefined();
-
-    });
-
-    it('should reject if request is invalid', async ()=>{
-
-        const result = await supertest(web).post('/api/users').send({
-            username: '',
-            password: '',
-            name:''
-        });
-
-        logger.info(result.body)
-
-        expect(result.status).toBe(400);
-        expect(result.body.errors).toBeDefined();
-
-    })
-
-
-    it('should reject if username already registered', async ()=>{
-
-        let result = await supertest(web).post('/api/users').send({
-            username: 'test',
-            password: 'rahasia',
-            name:'test'
-        });
-
-        expect(result.status).toBe(200);
-        expect(result.body.data.username).toBe('test');
-        expect(result.body.data.name).toBe('test');
-        expect(result.body.data.password).toBeUndefined();
-
-
-        result = await supertest(web).post('/api/users').send({
-            username: 'test',
-            password: 'rahasia',
-            name:'test'
-        });
-
-        logger.info(result.body)
-
-        expect(result.status).toBe(400);
-        expect(result.body.errors).toBeDefined();
-
-    });
-    
-})
-
- ```
-
-
+### Unit Test
+ 
 user.test.js
 
 
@@ -2323,6 +2327,297 @@ export{
     removeTestUser, createTestUser
 }
 ```
+
+
+
+## Get User API
+
+### Validation
+
+user-validation.js
+
+```js
+import Joi from "joi"
+
+const registerUserValidation = Joi.object({
+    username: Joi.string().max(100).required(),
+    password: Joi.string().max(100).required(),
+    name: Joi.string().max(100).required(),
+});
+
+const loginUserValidation = Joi.object({
+    username: Joi.string().max(100).required(),
+    password: Joi.string().max(100).required()
+});
+
+
+const getUserValidation = Joi.string.max(100).required();
+
+export {
+    registerUserValidation, 
+    loginUserValidation,
+    getUserValidation
+}
+
+```
+
+
+### Services
+
+user-service.js
+
+```js
+
+import { getUserValidation, loginUserValidation, registerUserValidation } from "../validation/user-validation.js"
+import { validate } from "./../validation/validation.js"
+import {prismaClient} from "./../application/databases.js"
+import { ErrorHandling } from "../error/error-handling.js"
+import bcrypt from "bcrypt"
+import { logger } from "../application/logging.js"
+import {v4 as uuid} from "uuid"
+
+
+const register = async (request)=>{
+    // validate
+    const user = validate(registerUserValidation, request)
+
+    // check user
+    const countUser = await prismaClient.user.count({
+        where:{
+            username: user.username
+        }
+    })
+
+    if(countUser===1){
+        throw new ErrorHandling(400, "Username already exist")
+    }
+
+    // hashing password
+    user.password = await bcrypt.hash(user.password, 10)
+
+
+    // query ke database
+
+    return await prismaClient.user.create({
+        data: user,
+        select:{
+            username: true, 
+            name: true
+        }
+    })
+}
+
+const login = async(request)=>{
+    const loginRequest = validate(loginUserValidation, request);
+
+    // check user
+    const user = await prismaClient.user.findUnique({
+        where: {
+            username: loginRequest.username
+        },
+        select:{
+            username: true,
+            password: true
+        }
+    });
+
+
+    if(!user){
+        throw new ErrorHandling(401, "Username or password wrong");
+    }
+
+    // check password
+    const isPasswordValid = await bcrypt.compare(loginRequest.password, user.password);
+    if(!isPasswordValid){
+        throw new ErrorHandling(401, "Username or password wrong");
+    }
+
+    // membuat token
+    const token = uuid().toString()
+
+    return prismaClient.user.update({
+        data:{
+            token: token
+        }, 
+        where:{
+            username: user.username
+        },
+        select: {
+            token: true
+        }
+    });
+}
+
+
+const getUser = async(username)=>{
+    username = validate(getUserValidation, username);
+
+    const user = await prismaClient.user.findUnique({
+        where:{
+            username: username
+        },
+        select:{
+            username: true, 
+            name: true
+        }
+    });
+
+    if(!user){
+        throw new ErrorHandling(404, "User is not found");
+    }
+
+    return user;
+
+}
+
+export default {
+    register,
+    login, 
+    getUser
+}
+
+```
+
+
+### Controller
+
+```js
+import userService from "../service/user-service.js"
+
+const test = async (req, res, next)=>{
+    try{
+        res.status(200).json({
+            data: "test"
+        })
+    } catch(error){
+        next(error)
+    }
+}
+
+const register = async(req, res, next)=>{
+    try{
+        const result = await userService.register(req.body)
+        res.status(200).json({
+            data: result
+        })
+    } catch(error){
+        next(error)
+    }
+}
+
+const login = async(req, res, next)=>{
+    try{
+        const result = await userService.login(req.body)
+        res.status(200).json({
+            status: true,
+            data: result
+        })
+    } catch(error){
+        next(error)
+    }
+}
+
+
+const getUser = async(req, res, next)=>{
+    try{
+        const username = req.user.username;
+        const result = await userService.getUser(username);
+        res.status(200).json({
+            status: true,
+            data: result
+        })
+
+    } catch(error){
+        next(error);
+    }
+}
+
+
+export default {
+    register, login, test
+}
+
+```
+
+auth-middleware.js
+
+```js
+import { prismaClient } from "../application/databases";
+
+export const authMiddleware = async(req, res, next)=>{
+    const token = req.get('Authorization');
+
+    if(!token){
+        res.status(401).json({
+            status: false,
+            errors: 'Unauthorized'
+        }).end();
+    } 
+
+    const user = await prismaClient.user.findFirst({
+            where:{
+                token:token
+            }
+        });
+
+    if(!user){
+        res.status(401).json({
+            status: false,
+            errors: 'Unauthorized'
+        }).end();
+    }
+
+    req.user = user;
+    next();
+}
+```
+
+
+api.js
+
+```js
+
+import express from "express"
+import userController from "../controller/user-controller.js"
+import { authMiddleware } from "../middleware/auth-middleware.js";
+
+
+const userRouter = new express.Router();
+userRouter(authMiddleware);
+userRouter.get('/api/users/current', userController.getUser)
+
+
+export {
+    userRouter
+}
+
+```
+
+web.js
+
+```js
+import express from "express"
+import { publicRouter } from "../route/public-api.js"
+import { errorMiddleware } from "../middleware/error-middleware.js"
+import { userRouter } from "../route/api.js"
+
+export const web = express()
+web.use(express.json())
+web.use(publicRouter)
+web.use(errorMiddleware)
+web.use(userRouter)
+
+```
+
+
+### Unit Test
+
+```js
+
+
+```
+
+
 
 
 ## Reference:

@@ -12,6 +12,19 @@ Content-Type: application/json
 ###
 
 ###
+POST https://be.sinergifarm.id/api/users
+Accept: application/json
+Content-Type: application/json
+
+{
+  "username" : "test-user",
+  "password" : "rahasia",
+  "name"  : "Test User"
+}
+
+###
+
+###
 POST http://localhost:3000/api/users/login
 Accept: application/json
 Content-Type: application/json
